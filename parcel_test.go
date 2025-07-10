@@ -60,6 +60,8 @@ func TestAddGetDelete(t *testing.T) {
 	row, err := store.Get(id)
 
 	require.NoError(t, err)
+
+	parcel.Number = id
 	assert.Equal(t, row, parcel)
 
 	// delete
@@ -69,9 +71,9 @@ func TestAddGetDelete(t *testing.T) {
 	
 	require.NoError(t, err)
 
-	_, err = store.GetByClient(id)
-
-	require.Error(t, sql.ErrNoRows, err)
+	row, err = store.Get(id)
+	require.ErrorIs(t, sql.ErrNoRows, err)
+	require.Empty(t, row)
 }
 
 // TestSetAddress проверяет обновление адреса
@@ -96,13 +98,11 @@ func TestSetAddress(t *testing.T) {
 
 	// check
 	// получите добавленную посылку и убедитесь, что адрес обновился
-	p, err := store.GetByClient(id)
+	p, err := store.Get(id)
 
 	require.NoError(t, err)
 
-	for _, item := range p { 
-		assert.Equal(t, newAddress, item.Address)
-	}
+	assert.Equal(t, newAddress, p.Address)
 }
 
 // TestSetStatus проверяет обновление статуса
@@ -120,18 +120,17 @@ func TestSetStatus(t *testing.T) {
 
 	// set status
 	// обновите статус, убедитесь в отсутствии ошибки
-	err = store.SetAddress(id, ParcelStatusSent) 
+	err = store.SetStatus(id, ParcelStatusSent) 
 	require.NoError(t, err)
 
 	// check
 	// получите добавленную посылку и убедитесь, что статус обновился
-	p, err := store.GetByClient(id)
+	p, err := store.Get(id)
 
 	require.NoError(t, err)
 
-	for _, item := range p { 
-		assert.Equal(t, ParcelStatusSent, item.Status)
-	}
+	assert.Equal(t, ParcelStatusSent, p.Status)
+
 }
 
 // TestGetByClient проверяет получение посылок по идентификатору клиента
@@ -157,8 +156,9 @@ func TestGetByClient(t *testing.T) {
 
 	// add
 	for i := 0; i < lenParcels; i++ {
-		id, err := 	store.Add(parcels[i])
+		id, err := store.Add(parcels[i])
 		require.NoError(t, err)
+		require.NotEmpty(t, id)
 
 		// обновляем идентификатор добавленной у посылки
 		parcels[i].Number = id
@@ -170,7 +170,7 @@ func TestGetByClient(t *testing.T) {
 	// get by client
 	storedParcels, err := store.GetByClient(client)
 	require.NoError(t, err)
-	assert.Equal(t, lenParcels, len(storedParcels))
+	assert.Len(t, parcels, len(storedParcels))
 
 	// получите список посылок по идентификатору клиента, сохранённого в переменной client
 	// убедитесь в отсутствии ошибки
